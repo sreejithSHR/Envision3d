@@ -1,7 +1,7 @@
 import React, { Suspense, useRef, useState, useEffect } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, useGLTF, Environment, Grid, Center, Text } from '@react-three/drei';
-import { Upload, Cube, Eye } from 'lucide-react';
+import { Upload, Cuboid as Cube, Eye } from 'lucide-react';
 import { Job } from '../types';
 import * as THREE from 'three';
 

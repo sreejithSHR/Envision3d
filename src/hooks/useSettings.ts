@@ -1,12 +1,23 @@
 import { useState, useEffect } from 'react';
-import { Settings } from '../types';
+import { Settings, GenerationSettings } from '../types';
+
+const DEFAULT_GENERATION_SETTINGS: GenerationSettings = {
+  seed: 42,
+  randomizeSeed: false,
+  guidanceStrength1: 7.5,
+  samplingSteps1: 12,
+  guidanceStrength2: 3,
+  samplingSteps2: 12,
+  symmetry: 'off'
+};
 
 const DEFAULT_SETTINGS: Settings = {
   apiUrl: 'http://localhost:8000',
   outputDirectory: '',
   theme: 'dark',
   autoDownload: false,
-  maxHistory: 100
+  maxHistory: 100,
+  defaultSettings: DEFAULT_GENERATION_SETTINGS
 };
 
 export const useSettings = () => {
@@ -32,6 +43,7 @@ export const useSettings = () => {
 
   return {
     settings,
-    updateSettings
+    updateSettings,
+    defaultGenerationSettings: DEFAULT_GENERATION_SETTINGS
   };
 };

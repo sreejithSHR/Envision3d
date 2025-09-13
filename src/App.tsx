@@ -9,20 +9,21 @@ import { useJobs } from './hooks/useJobs';
 import { useSettings } from './hooks/useSettings';
 import { Job } from './types';
 import { useToast } from '@/hooks/use-toast';
-import apiService from './services/api';
+import mockApiService from './services/mockApi';
+import fileManager from './services/fileManager';
 
 function App() {
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [uploadedImage, setUploadedImage] = useState<File | null>(null);
   const [projectName, setProjectName] = useState('');
   const [projectDescription, setProjectDescription] = useState('');
-  const { jobs, addJob, updateJob } = useJobs();
+  const { jobs, addJob, updateJob, deleteJob } = useJobs();
   const { settings, updateSettings } = useSettings();
   const { toast } = useToast();
 
   // Set API base URL from settings
   useEffect(() => {
-    apiService.setBaseURL(settings.apiUrl);
+    mockApiService.setBaseURL(settings.apiUrl);
   }, [settings.apiUrl]);
 
   // Load history on startup
@@ -95,13 +96,85 @@ function App() {
     }
   };
 
+  const handleOpenProject = async () => {
+    const result = await fileManager.selectImageFile();
+    if (result.success && result.file) {
+      handleImageUpload(result.file);
+      toast({
+        title: "Project Opened",
+        description: "Image loaded successfully.",
+      });
+    }
+  };
+
+  const handleSaveProject = async () => {
+    if (!selectedJob) {
+      toast({
+        title: "No Project to Save",
+        description: "Please select a project first.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const result = await fileManager.saveJobData(selectedJob);
+    if (result.success) {
+      toast({
+        title: "Project Saved",
+        description: "Project has been saved successfully.",
+      });
+    } else {
+      toast({
+        title: "Save Failed",
+        description: result.error || "Failed to save project.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleExportProject = async () => {
+    if (!selectedJob) {
+      toast({
+        title: "No Project to Export",
+        description: "Please select a project first.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const result = await fileManager.exportProject(selectedJob, true);
+    if (result.success) {
+      toast({
+        title: "Project Exported",
+        description: "Project has been exported successfully.",
+      });
+    } else {
+      toast({
+        title: "Export Failed",
+        description: result.error || "Failed to export project.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDeleteJob = (jobId: string) => {
+    if (selectedJob?.id === jobId) {
+      setSelectedJob(null);
+    }
+    deleteJob(jobId);
+  };
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
+    <div className="min-h-screen bg-gray-50 flex flex-col">
+      <Header 
+        onOpenProject={handleOpenProject}
+        onSaveProject={handleSaveProject}
+        onExportProject={handleExportProject}
+      />
       
-      <div className="flex h-[calc(100vh-80px)]">
+      <div className="flex flex-1 h-[calc(100vh-80px)]">
         {/* Left Panel - Generation Settings */}
-        <div className="w-96 bg-white border-r border-gray-200 flex flex-col">
+        <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
           <div className="flex-1 overflow-auto">
             <ImageUploader
               uploadedImage={uploadedImage}
@@ -125,7 +198,7 @@ function App() {
         </div>
 
         {/* Right Panel - Project Details */}
-        <div className="w-96 bg-white border-l border-gray-200 overflow-auto">
+        <div className="w-80 bg-white border-l border-gray-200 overflow-auto">
           <ProjectDetails
             projectName={projectName}
             projectDescription={projectDescription}
@@ -133,6 +206,7 @@ function App() {
             onProjectDescriptionChange={setProjectDescription}
             selectedJob={selectedJob}
             onPublish={handlePublish}
+            onDeleteJob={handleDeleteJob}
           />
         </div>
       </div>

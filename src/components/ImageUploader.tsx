@@ -3,10 +3,11 @@ import { useDropzone } from 'react-dropzone';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Upload, Image as ImageIcon, Sparkles, X, FileImage } from 'lucide-react';
+import { Upload, Image as ImageIcon, Sparkles, X, FileImage, FolderOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { v4 as uuidv4 } from 'uuid';
-import apiService from '../services/api';
+import mockApiService from '../services/mockApi';
+import fileManager from '../services/fileManager';
 import { Job } from '../types';
 import { useToast } from '@/hooks/use-toast';
 
@@ -56,11 +57,12 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
     setIsGenerating(true);
 
     try {
-      const response = await apiService.generateModel({
+      const response = await mockApiService.generateModel({
         image: uploadedImage,
         name: projectName || uploadedImage.name.replace(/\.[^/.]+$/, ''),
         settings: {
           seed: Math.floor(Math.random() * 1000000),
+          randomizeSeed: true,
           guidanceStrength1: 7.5,
           samplingSteps1: 12,
           guidanceStrength2: 3,
@@ -99,17 +101,31 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
     }
   };
 
+  const handleBrowseFile = async () => {
+    const result = await fileManager.selectImageFile();
+    
+    if (result.success && result.file) {
+      onImageUpload(result.file);
+    } else if (result.error) {
+      toast({
+        title: "File Selection Failed",
+        description: result.error,
+        variant: "destructive"
+      });
+    }
+  };
+
   const removeImage = () => {
     onImageUpload(null as any);
     onProjectNameChange('');
   };
 
   return (
-    <div className="p-8 border-b border-gray-100">
+    <div className="p-6 border-b border-gray-100">
       <div className="space-y-6">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Upload Image</h2>
-          <p className="text-sm text-gray-600">Upload an image to generate a 3D model</p>
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">Source Image</h2>
+          <p className="text-sm text-gray-600">Select an image file to generate a 3D model</p>
         </div>
 
         {/* Project Name Input */}
@@ -129,33 +145,47 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
         {/* Image Upload Area */}
         <div className="space-y-4">
           {!uploadedImage ? (
-            <div
-              {...getRootProps()}
-              className={cn(
-                "border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-200",
-                isDragActive 
-                  ? "border-yellow-400 bg-yellow-50 scale-[1.02]" 
-                  : "border-gray-300 hover:border-gray-400 hover:bg-gray-50"
-              )}
-            >
-              <input {...getInputProps()} />
-              <div className="space-y-4">
-                <div className="w-16 h-16 mx-auto bg-gray-100 rounded-full flex items-center justify-center">
-                  <Upload className="w-8 h-8 text-gray-400" />
-                </div>
-                <div>
-                  <p className="text-lg font-medium text-gray-900 mb-1">
-                    {isDragActive ? "Drop your image here" : "Drag & drop your image"}
-                  </p>
-                  <p className="text-sm text-gray-500 mb-3">
-                    or click to browse files
-                  </p>
-                  <div className="flex items-center justify-center gap-2 text-xs text-gray-400">
-                    <FileImage className="w-4 h-4" />
-                    <span>PNG, JPG, JPEG, GIF, BMP, WEBP</span>
+            <div className="space-y-3">
+              <div
+                {...getRootProps()}
+                className={cn(
+                  "border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all duration-200",
+                  isDragActive 
+                    ? "border-yellow-400 bg-yellow-50 scale-[1.02]" 
+                    : "border-gray-300 hover:border-gray-400 hover:bg-gray-50"
+                )}
+              >
+                <input {...getInputProps()} />
+                <div className="space-y-3">
+                  <div className="w-12 h-12 mx-auto bg-gray-100 rounded-full flex items-center justify-center">
+                    <Upload className="w-6 h-6 text-gray-400" />
+                  </div>
+                  <div>
+                    <p className="text-base font-medium text-gray-900 mb-1">
+                      {isDragActive ? "Drop your image here" : "Drag & drop image"}
+                    </p>
+                    <div className="flex items-center justify-center gap-2 text-xs text-gray-400">
+                      <FileImage className="w-4 h-4" />
+                      <span>PNG, JPG, JPEG, GIF, BMP, WEBP (Max 50MB)</span>
+                    </div>
                   </div>
                 </div>
               </div>
+              
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-gray-200"></div>
+                <span className="text-xs text-gray-400 font-medium">OR</span>
+                <div className="flex-1 h-px bg-gray-200"></div>
+              </div>
+              
+              <Button
+                variant="outline"
+                onClick={handleBrowseFile}
+                className="w-full"
+              >
+                <FolderOpen className="w-4 h-4 mr-2" />
+                Browse Files
+              </Button>
             </div>
           ) : (
             <div className="relative bg-gray-50 rounded-xl p-4 border border-gray-200">
@@ -170,7 +200,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-gray-900 truncate">{uploadedImage.name}</p>
                   <p className="text-sm text-gray-500">
-                    {(uploadedImage.size / 1024 / 1024).toFixed(2)} MB
+                    {fileManager.getFileInfo(uploadedImage).sizeFormatted}
                   </p>
                   <div className="flex items-center gap-2 mt-2">
                     <div className="w-2 h-2 bg-green-500 rounded-full"></div>
@@ -194,7 +224,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
         <Button
           onClick={handleGenerate}
           disabled={!uploadedImage || isGenerating}
-          className="w-full bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-black font-semibold py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-black font-semibold py-2.5 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
           size="lg"
         >
           {isGenerating ? (
@@ -212,7 +242,7 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({
 
         {!uploadedImage && (
           <p className="text-xs text-gray-400 text-center">
-            Upload an image to start generating your 3D model
+            Select an image file to start generating your 3D model
           </p>
         )}
       </div>

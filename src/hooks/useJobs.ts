@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Job } from '../types';
-import apiService from '../services/api';
+import mockApiService from '../services/mockApi';
 import { useToast } from './use-toast';
 
 export const useJobs = () => {
@@ -18,8 +18,13 @@ export const useJobs = () => {
     ));
   }, []);
 
+  const deleteJob = useCallback((jobId: string) => {
+    setJobs(prev => prev.filter(job => job.id !== jobId));
+    mockApiService.deleteJob(jobId);
+  }, []);
+
   const pollJob = useCallback(async (jobId: string) => {
-    const response = await apiService.getJobStatus(jobId);
+    const response = await mockApiService.getJobStatus(jobId);
     
     if (response.success && response.data) {
       const job = response.data;
@@ -97,6 +102,7 @@ export const useJobs = () => {
     jobs,
     addJob,
     updateJob,
+    deleteJob,
     isPolling
   };
 };

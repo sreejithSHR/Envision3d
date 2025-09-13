@@ -5,8 +5,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Share, Download, ExternalLink, FileText, Calendar, Clock } from 'lucide-react';
+import { Share, Download, ExternalLink, FileText, Calendar, Clock, Save, FolderOpen, Trash2 } from 'lucide-react';
 import { Job } from '../types';
+import fileManager from '../services/fileManager';
+import { useToast } from '@/hooks/use-toast';
 
 interface ProjectDetailsProps {
   projectName: string;
@@ -15,6 +17,7 @@ interface ProjectDetailsProps {
   onProjectDescriptionChange: (description: string) => void;
   selectedJob: Job | null;
   onPublish: () => void;
+  onDeleteJob?: (jobId: string) => void;
 }
 
 const ProjectDetails: React.FC<ProjectDetailsProps> = ({
@@ -23,15 +26,83 @@ const ProjectDetails: React.FC<ProjectDetailsProps> = ({
   onProjectNameChange,
   onProjectDescriptionChange,
   selectedJob,
-  onPublish
+  onPublish,
+  onDeleteJob
 }) => {
+  const { toast } = useToast();
+
   const handleDownload = (format: 'glb' | 'ply' | 'mp4') => {
-    if (!selectedJob?.downloads?.[format]) return;
-    
-    const link = document.createElement('a');
-    link.href = selectedJob.downloads[format]!;
-    link.download = `${selectedJob.name}.${format}`;
-    link.click();
+    if (!selectedJob?.downloads?.[format]) {
+      toast({
+        title: "Download Not Available",
+        description: `${format.toUpperCase()} file is not ready for download.`,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    fileManager.downloadModel(selectedJob, format).then(result => {
+      if (result.success) {
+        toast({
+          title: "Download Started",
+          description: `${format.toUpperCase()} file download has started.`,
+        });
+      } else {
+        toast({
+          title: "Download Failed",
+          description: result.error || "Failed to download file.",
+          variant: "destructive"
+        });
+      }
+    });
+  };
+
+  const handleSaveProject = async () => {
+    if (!selectedJob) return;
+
+    const result = await fileManager.saveJobData(selectedJob);
+    if (result.success) {
+      toast({
+        title: "Project Saved",
+        description: "Project data has been saved successfully.",
+      });
+    } else {
+      toast({
+        title: "Save Failed",
+        description: result.error || "Failed to save project.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleExportProject = async () => {
+    if (!selectedJob) return;
+
+    const result = await fileManager.exportProject(selectedJob, true);
+    if (result.success) {
+      toast({
+        title: "Project Exported",
+        description: "Project has been exported successfully.",
+      });
+    } else {
+      toast({
+        title: "Export Failed",
+        description: result.error || "Failed to export project.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDeleteJob = () => {
+    if (!selectedJob || !onDeleteJob) return;
+
+    if (confirm(`Are you sure you want to delete "${selectedJob.name}"? This action cannot be undone.`)) {
+      onDeleteJob(selectedJob.id);
+      toast({
+        title: "Job Deleted",
+        description: "The job has been deleted successfully.",
+      });
+    }
   };
 
   const getStatusColor = (status: Job['status']) => {
@@ -50,11 +121,11 @@ const ProjectDetails: React.FC<ProjectDetailsProps> = ({
   };
 
   return (
-    <div className="p-8 space-y-8">
+    <div className="p-6 space-y-6">
       <div>
         <div className="flex items-center gap-3 mb-6">
           <FileText className="w-5 h-5 text-gray-600" />
-          <h2 className="text-xl font-semibold text-gray-900">Project Details</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Project Details</h2>
         </div>
         
         <div className="space-y-6">
@@ -80,23 +151,35 @@ const ProjectDetails: React.FC<ProjectDetailsProps> = ({
               placeholder="Describe your 3D model project..."
               value={projectDescription}
               onChange={(e) => onProjectDescriptionChange(e.target.value)}
-              className="min-h-[120px] resize-none"
+              className="min-h-[100px] resize-none"
             />
           </div>
         </div>
       </div>
 
       {selectedJob && (
-        <div className="space-y-6 p-6 bg-gray-50 rounded-xl border border-gray-200">
+        <div className="space-y-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-900">Current Model</h3>
-            <Badge className={`${getStatusColor(selectedJob.status)} border font-medium`}>
-              {selectedJob.status.charAt(0).toUpperCase() + selectedJob.status.slice(1)}
-            </Badge>
+            <h3 className="text-base font-semibold text-gray-900">Current Model</h3>
+            <div className="flex items-center gap-2">
+              <Badge className={`${getStatusColor(selectedJob.status)} border font-medium text-xs`}>
+                {selectedJob.status.charAt(0).toUpperCase() + selectedJob.status.slice(1)}
+              </Badge>
+              {onDeleteJob && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDeleteJob}
+                  className="text-red-500 hover:text-red-700 p-1"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
           </div>
 
           {selectedJob.image && (
-            <div className="aspect-video bg-white rounded-lg overflow-hidden border border-gray-200 shadow-sm">
+            <div className="aspect-video bg-white rounded-md overflow-hidden border border-gray-200 shadow-sm">
               <img
                 src={selectedJob.image}
                 alt={selectedJob.name}
@@ -133,13 +216,13 @@ const ProjectDetails: React.FC<ProjectDetailsProps> = ({
 
           {selectedJob.status === 'completed' && selectedJob.downloads && (
             <div className="space-y-4">
-              <h4 className="font-semibold text-gray-900">Download Options</h4>
+              <h4 className="font-medium text-gray-900">Download Options</h4>
               <div className="grid grid-cols-1 gap-2">
                 {selectedJob.downloads.glb && (
                   <Button
                     variant="outline"
                     onClick={() => handleDownload('glb')}
-                    className="justify-start h-auto p-3"
+                    className="justify-start h-auto p-2.5 text-sm"
                   >
                     <Download className="w-4 h-4 mr-3" />
                     <div className="text-left">
@@ -153,7 +236,7 @@ const ProjectDetails: React.FC<ProjectDetailsProps> = ({
                   <Button
                     variant="outline"
                     onClick={() => handleDownload('ply')}
-                    className="justify-start h-auto p-3"
+                    className="justify-start h-auto p-2.5 text-sm"
                   >
                     <Download className="w-4 h-4 mr-3" />
                     <div className="text-left">
@@ -167,7 +250,7 @@ const ProjectDetails: React.FC<ProjectDetailsProps> = ({
                   <Button
                     variant="outline"
                     onClick={() => handleDownload('mp4')}
-                    className="justify-start h-auto p-3"
+                    className="justify-start h-auto p-2.5 text-sm"
                   >
                     <Download className="w-4 h-4 mr-3" />
                     <div className="text-left">
@@ -179,14 +262,36 @@ const ProjectDetails: React.FC<ProjectDetailsProps> = ({
               </div>
             </div>
           )}
+
+          {/* Project Actions */}
+          <div className="flex gap-2 pt-2 border-t border-gray-200">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSaveProject}
+              className="flex-1"
+            >
+              <Save className="w-4 h-4 mr-2" />
+              Save
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportProject}
+              className="flex-1"
+            >
+              <FolderOpen className="w-4 h-4 mr-2" />
+              Export
+            </Button>
+          </div>
         </div>
       )}
 
-      <div className="pt-6 border-t border-gray-200">
+      <div className="pt-4 border-t border-gray-200">
         <Button
           onClick={onPublish}
           disabled={!selectedJob || selectedJob.status !== 'completed' || !selectedJob.downloads?.glb}
-          className="w-full bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-black font-semibold py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-black font-semibold py-2.5 rounded-lg shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
           size="lg"
         >
           <Share className="w-5 h-5 mr-3" />
@@ -194,7 +299,7 @@ const ProjectDetails: React.FC<ProjectDetailsProps> = ({
         </Button>
         
         {selectedJob && selectedJob.status === 'completed' && (
-          <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+          <div className="mt-3 p-2.5 bg-blue-50 rounded-md border border-blue-200">
             <div className="flex items-start gap-2">
               <ExternalLink className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
               <div className="text-xs text-blue-700">

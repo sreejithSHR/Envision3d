@@ -1,12 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Toaster } from '@/components/ui/toaster';
-import Sidebar from './components/Sidebar';
-import UploadPanel from './components/UploadPanel';
-import JobQueue from './components/JobQueue';
-import ModelViewer from './components/ModelViewer';
-import HistoryPanel from './components/HistoryPanel';
-import SettingsPanel from './components/SettingsPanel';
-import FilesPanel from './components/FilesPanel';
+import Header from './components/Header';
+import GenerationSettings from './components/GenerationSettings';
+import ThreeDSpace from './components/ThreeDSpace';
+import ProjectDetails from './components/ProjectDetails';
 import { useJobs } from './hooks/useJobs';
 import { useSettings } from './hooks/useSettings';
 import { Job } from './types';
@@ -14,8 +11,10 @@ import { useToast } from '@/hooks/use-toast';
 import apiService from './services/api';
 
 function App() {
-  const [activeView, setActiveView] = useState('upload');
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+  const [uploadedImage, setUploadedImage] = useState<File | null>(null);
+  const [projectName, setProjectName] = useState('');
+  const [projectDescription, setProjectDescription] = useState('');
   const { jobs, addJob, updateJob } = useJobs();
   const { settings, updateSettings } = useSettings();
   const { toast } = useToast();
@@ -53,137 +52,84 @@ function App() {
 
   const handleJobCreated = (job: Job) => {
     addJob(job);
-    setActiveView('queue');
   };
 
-  const handleViewModel = (job: Job) => {
-    setSelectedJob(job);
+  const handleImageUpload = (file: File) => {
+    setUploadedImage(file);
+    if (!projectName) {
+      setProjectName(file.name.replace(/\.[^/.]+$/, ''));
+    }
   };
 
-  const handleDownload = async (job: Job, format: 'glb' | 'ply' | 'mp4') => {
-    const downloadUrl = job.downloads?.[format];
-    if (!downloadUrl) {
+  const handlePublish = async () => {
+    if (!selectedJob || !selectedJob.downloads?.glb) {
       toast({
-        title: "Download Error",
-        description: `${format.toUpperCase()} file not available for this model.`,
+        title: "No Model to Publish",
+        description: "Please generate a 3D model first.",
         variant: "destructive"
       });
       return;
     }
 
     try {
-      if (window.electronAPI) {
-        const result = await window.electronAPI.downloadFile(
-          downloadUrl, 
-          `${job.name}.${format}`
-        );
-        
-        if (result.success) {
-          toast({
-            title: "Download Started",
-            description: `Downloading ${job.name}.${format}...`,
-          });
-        }
-      } else {
-        // Fallback for web version
-        const link = document.createElement('a');
-        link.href = downloadUrl;
-        link.download = `${job.name}.${format}`;
-        link.click();
-        
-        toast({
-          title: "Download Started",
-          description: `Downloading ${job.name}.${format}...`,
-        });
-      }
+      // Generate a unique ID for the published model
+      const publishId = `model_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Create shareable URL with Google Model Viewer
+      const shareableUrl = `https://modelviewer.dev/editor/?src=${encodeURIComponent(selectedJob.downloads.glb)}&title=${encodeURIComponent(selectedJob.name)}`;
+      
+      // Copy to clipboard
+      await navigator.clipboard.writeText(shareableUrl);
+      
+      toast({
+        title: "Model Published!",
+        description: "Shareable link copied to clipboard. Anyone can view your 3D model now.",
+      });
     } catch (error) {
       toast({
-        title: "Download Failed",
-        description: "Failed to download the file. Please try again.",
+        title: "Publish Failed",
+        description: "Failed to publish the model. Please try again.",
         variant: "destructive"
       });
     }
   };
 
-  const handleDeleteJob = (jobId: string) => {
-    // In a real implementation, you'd remove the job from the jobs array
-    toast({
-      title: "Job Deleted",
-      description: "The job has been removed from history.",
-    });
-  };
-
-  const handleSelectDirectory = async () => {
-    if (window.electronAPI) {
-      const result = await window.electronAPI.selectDirectory();
-      if (!result.canceled && result.filePaths.length > 0) {
-        updateSettings({ outputDirectory: result.filePaths[0] });
-      }
-    }
-  };
-
-  const renderMainContent = () => {
-    switch (activeView) {
-      case 'upload':
-        return <UploadPanel onJobCreated={handleJobCreated} />;
-      case 'queue':
-        return (
-          <JobQueue
-            jobs={jobs}
-            onDownload={handleDownload}
-            onViewModel={handleViewModel}
-          />
-        );
-      case 'history':
-        return (
-          <HistoryPanel
-            jobs={jobs}
-            onViewModel={handleViewModel}
-            onDownload={handleDownload}
-            onDeleteJob={handleDeleteJob}
-          />
-        );
-      case 'files':
-        return (
-          <FilesPanel
-            outputDirectory={settings.outputDirectory}
-            onSelectDirectory={handleSelectDirectory}
-          />
-        );
-      case 'settings':
-        return (
-          <SettingsPanel
-            settings={settings}
-            onUpdateSettings={updateSettings}
-          />
-        );
-      default:
-        return <UploadPanel onJobCreated={handleJobCreated} />;
-    }
-  };
-
   return (
-    <div className={`h-screen bg-background text-foreground ${settings.theme}`}>
-      <div className="flex h-full">
-        {/* Left Sidebar */}
-        <Sidebar activeView={activeView} onViewChange={setActiveView} />
+    <div className={`min-h-screen bg-gray-50 ${settings.theme}`}>
+      <Header />
+      
+      <div className="flex h-[calc(100vh-64px)]">
+        {/* Left Panel - Generation Settings */}
+        <div className="w-80 bg-white border-r border-gray-200 overflow-auto">
+          <GenerationSettings
+            uploadedImage={uploadedImage}
+            onImageUpload={handleImageUpload}
+            onJobCreated={handleJobCreated}
+            projectName={projectName}
+            onProjectNameChange={setProjectName}
+          />
+        </div>
 
-        {/* Main Content */}
-        <div className="flex-1 flex">
-          {/* Primary Content Area */}
-          <div className="flex-1 p-6 overflow-auto">
-            {renderMainContent()}
-          </div>
+        {/* Center - 3D Space */}
+        <div className="flex-1 bg-gray-100">
+          <ThreeDSpace
+            selectedJob={selectedJob}
+            uploadedImage={uploadedImage}
+            onJobSelect={setSelectedJob}
+            jobs={jobs}
+          />
+        </div>
 
-          {/* Right Panel - Model Viewer */}
-          {(activeView === 'upload' || activeView === 'queue' || activeView === 'history') && (
-            <div className="w-96 border-l border-border p-4">
-              <ModelViewer
-                selectedJob={selectedJob}
-                onDownload={handleDownload}
-              />
-            </div>
-          )}
+        {/* Right Panel - Project Details */}
+        <div className="w-80 bg-white border-l border-gray-200 overflow-auto">
+          <ProjectDetails
+            projectName={projectName}
+            projectDescription={projectDescription}
+            onProjectNameChange={setProjectName}
+            onProjectDescriptionChange={setProjectDescription}
+            selectedJob={selectedJob}
+            onPublish={handlePublish}
+          />
         </div>
       </div>
 

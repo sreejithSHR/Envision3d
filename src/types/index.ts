@@ -32,7 +32,11 @@ export interface GenerateRequest {
   image: File;
   name?: string;
   settings?: {
-    quality?: 'low' | 'medium' | 'high';
-    format?: string;
+    seed?: number;
+    guidanceStrength1?: number;
+    samplingSteps1?: number;
+    guidanceStrength2?: number;
+    samplingSteps2?: number;
+    symmetry?: string;
   };
 }

@@ -10,7 +10,7 @@ import { useSettings } from './hooks/useSettings';
 import { Job } from './types';
 import { useToast } from '@/hooks/use-toast';
 import apiService from './services/api';
-
+// fuck off
 function App() {
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [uploadedImage, setUploadedImage] = useState<File | null>(null);

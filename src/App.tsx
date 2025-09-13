@@ -4,6 +4,7 @@ import Header from './components/Header';
 import GenerationSettings from './components/GenerationSettings';
 import ThreeDSpace from './components/ThreeDSpace';
 import ProjectDetails from './components/ProjectDetails';
+import ImageUploader from './components/ImageUploader';
 import { useJobs } from './hooks/useJobs';
 import { useSettings } from './hooks/useSettings';
 import { Job } from './types';
@@ -95,23 +96,26 @@ function App() {
   };
 
   return (
-    <div className={`min-h-screen bg-gray-50 ${settings.theme}`}>
+    <div className="min-h-screen bg-gray-50">
       <Header />
       
-      <div className="flex h-[calc(100vh-64px)]">
+      <div className="flex h-[calc(100vh-80px)]">
         {/* Left Panel - Generation Settings */}
-        <div className="w-80 bg-white border-r border-gray-200 overflow-auto">
-          <GenerationSettings
-            uploadedImage={uploadedImage}
-            onImageUpload={handleImageUpload}
-            onJobCreated={handleJobCreated}
-            projectName={projectName}
-            onProjectNameChange={setProjectName}
-          />
+        <div className="w-96 bg-white border-r border-gray-200 flex flex-col">
+          <div className="flex-1 overflow-auto">
+            <ImageUploader
+              uploadedImage={uploadedImage}
+              onImageUpload={handleImageUpload}
+              onJobCreated={handleJobCreated}
+              projectName={projectName}
+              onProjectNameChange={setProjectName}
+            />
+            <GenerationSettings />
+          </div>
         </div>
 
         {/* Center - 3D Space */}
-        <div className="flex-1 bg-gray-100">
+        <div className="flex-1 bg-gradient-to-br from-gray-50 to-gray-100">
           <ThreeDSpace
             selectedJob={selectedJob}
             uploadedImage={uploadedImage}
@@ -121,7 +125,7 @@ function App() {
         </div>
 
         {/* Right Panel - Project Details */}
-        <div className="w-80 bg-white border-l border-gray-200 overflow-auto">
+        <div className="w-96 bg-white border-l border-gray-200 overflow-auto">
           <ProjectDetails
             projectName={projectName}
             projectDescription={projectDescription}

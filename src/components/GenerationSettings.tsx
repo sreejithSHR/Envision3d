@@ -1,294 +1,173 @@
-import React, { useState, useCallback } from 'react';
-import { useDropzone } from 'react-dropzone';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
-import { Upload, Image as ImageIcon, Sparkles } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { v4 as uuidv4 } from 'uuid';
-import apiService from '../services/api';
-import { Job } from '../types';
-import { useToast } from '@/hooks/use-toast';
+import { Settings, RotateCcw } from 'lucide-react';
 
-interface GenerationSettingsProps {
-  uploadedImage: File | null;
-  onImageUpload: (file: File) => void;
-  onJobCreated: (job: Job) => void;
-  projectName: string;
-  onProjectNameChange: (name: string) => void;
-}
-
-const GenerationSettings: React.FC<GenerationSettingsProps> = ({
-  uploadedImage,
-  onImageUpload,
-  onJobCreated,
-  projectName,
-  onProjectNameChange
-}) => {
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [seed, setSeed] = useState([0]);
+const GenerationSettings: React.FC = () => {
+  const [seed, setSeed] = useState([42]);
   const [randomizeSeed, setRandomizeSeed] = useState(false);
   const [guidanceStrength1, setGuidanceStrength1] = useState([7.5]);
   const [samplingSteps1, setSamplingSteps1] = useState([12]);
   const [guidanceStrength2, setGuidanceStrength2] = useState([3]);
   const [samplingSteps2, setSamplingSteps2] = useState([12]);
   const [symmetry, setSymmetry] = useState('off');
-  const { toast } = useToast();
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    const file = acceptedFiles[0];
-    if (file) {
-      onImageUpload(file);
-    }
-  }, [onImageUpload]);
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: {
-      'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.bmp']
-    },
-    multiple: false
-  });
-
-  const handleGenerate = async () => {
-    if (!uploadedImage) {
-      toast({
-        title: "No image selected",
-        description: "Please upload an image to generate a 3D model.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setIsGenerating(true);
-
-    try {
-      const response = await apiService.generateModel({
-        image: uploadedImage,
-        name: projectName || uploadedImage.name.replace(/\.[^/.]+$/, ''),
-        settings: {
-          seed: randomizeSeed ? Math.floor(Math.random() * 1000000) : seed[0],
-          guidanceStrength1: guidanceStrength1[0],
-          samplingSteps1: samplingSteps1[0],
-          guidanceStrength2: guidanceStrength2[0],
-          samplingSteps2: samplingSteps2[0],
-          symmetry
-        }
-      });
-
-      if (response.success && response.data) {
-        const newJob: Job = {
-          id: response.data.jobId,
-          name: projectName || uploadedImage.name.replace(/\.[^/.]+$/, ''),
-          status: 'pending',
-          progress: 0,
-          image: URL.createObjectURL(uploadedImage),
-          createdAt: new Date().toISOString()
-        };
-
-        onJobCreated(newJob);
-
-        toast({
-          title: "Generation Started!",
-          description: "Your 3D model generation has been queued.",
-        });
-      } else {
-        throw new Error(response.error || 'Failed to start generation');
-      }
-    } catch (error: any) {
-      toast({
-        title: "Generation Failed",
-        description: error.message || "Failed to start 3D model generation.",
-        variant: "destructive"
-      });
-    } finally {
-      setIsGenerating(false);
-    }
+  const resetToDefaults = () => {
+    setSeed([42]);
+    setRandomizeSeed(false);
+    setGuidanceStrength1([7.5]);
+    setSamplingSteps1([12]);
+    setGuidanceStrength2([3]);
+    setSamplingSteps2([12]);
+    setSymmetry('off');
   };
 
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Generation Settings</h2>
-        
-        {/* Seed */}
-        <div className="space-y-3 mb-6">
-          <Label className="text-sm font-medium text-gray-700">Seed</Label>
-          <Input
-            type="number"
-            value={seed[0]}
-            onChange={(e) => setSeed([parseInt(e.target.value) || 0])}
-            disabled={randomizeSeed}
-            className="w-full"
-          />
-          <div className="flex items-center space-x-2">
+    <div className="p-8 space-y-8">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Settings className="w-5 h-5 text-gray-600" />
+          <h2 className="text-xl font-semibold text-gray-900">Generation Settings</h2>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={resetToDefaults}
+          className="text-gray-500 hover:text-gray-700"
+        >
+          <RotateCcw className="w-4 h-4 mr-2" />
+          Reset
+        </Button>
+      </div>
+
+      {/* Seed Section */}
+      <div className="space-y-4 p-6 bg-gray-50 rounded-xl">
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-semibold text-gray-700">Seed</Label>
+          <div className="flex items-center space-x-3">
             <Switch
               id="randomize-seed"
               checked={randomizeSeed}
               onCheckedChange={setRandomizeSeed}
             />
             <Label htmlFor="randomize-seed" className="text-sm text-gray-600">
-              Randomize Seed
+              Randomize
             </Label>
           </div>
         </div>
+        <Input
+          type="number"
+          value={seed[0]}
+          onChange={(e) => setSeed([parseInt(e.target.value) || 0])}
+          disabled={randomizeSeed}
+          className="w-full bg-white"
+        />
+      </div>
 
-        {/* Stage 1: Sparse Structure Generation */}
-        <div className="space-y-4 mb-6">
-          <h3 className="text-sm font-medium text-gray-700">Stage 1: Sparse Structure Generation</h3>
-          
-          <div className="space-y-2">
-            <Label className="text-sm text-gray-600">Guidance Strength</Label>
-            <div className="px-2">
-              <Slider
-                value={guidanceStrength1}
-                onValueChange={setGuidanceStrength1}
-                max={20}
-                min={0}
-                step={0.5}
-                className="w-full"
-              />
+      {/* Stage 1 Settings */}
+      <div className="space-y-6 p-6 bg-blue-50 rounded-xl border border-blue-100">
+        <h3 className="text-lg font-semibold text-blue-900">Stage 1: Sparse Structure Generation</h3>
+        
+        <div className="space-y-4">
+          <div>
+            <div className="flex justify-between items-center mb-3">
+              <Label className="text-sm font-medium text-blue-800">Guidance Strength</Label>
+              <span className="text-sm font-mono text-blue-600 bg-blue-100 px-2 py-1 rounded">
+                {guidanceStrength1[0]}
+              </span>
             </div>
-            <div className="text-xs text-gray-500">{guidanceStrength1[0]}</div>
+            <Slider
+              value={guidanceStrength1}
+              onValueChange={setGuidanceStrength1}
+              max={20}
+              min={0}
+              step={0.5}
+              className="w-full"
+            />
           </div>
 
-          <div className="space-y-2">
-            <Label className="text-sm text-gray-600">Sampling Steps</Label>
-            <div className="px-2">
-              <Slider
-                value={samplingSteps1}
-                onValueChange={setSamplingSteps1}
-                max={50}
-                min={1}
-                step={1}
-                className="w-full"
-              />
+          <div>
+            <div className="flex justify-between items-center mb-3">
+              <Label className="text-sm font-medium text-blue-800">Sampling Steps</Label>
+              <span className="text-sm font-mono text-blue-600 bg-blue-100 px-2 py-1 rounded">
+                {samplingSteps1[0]}
+              </span>
             </div>
-            <div className="text-xs text-gray-500">{samplingSteps1[0]}</div>
+            <Slider
+              value={samplingSteps1}
+              onValueChange={setSamplingSteps1}
+              max={50}
+              min={1}
+              step={1}
+              className="w-full"
+            />
           </div>
         </div>
+      </div>
 
-        {/* Stage 2: Structure Latent Generation */}
-        <div className="space-y-4 mb-6">
-          <h3 className="text-sm font-medium text-gray-700">Stage 2: Structure Latent Generation</h3>
-          
-          <div className="space-y-2">
-            <Label className="text-sm text-gray-600">Guidance Strength</Label>
-            <div className="px-2">
-              <Slider
-                value={guidanceStrength2}
-                onValueChange={setGuidanceStrength2}
-                max={20}
-                min={0}
-                step={0.5}
-                className="w-full"
-              />
+      {/* Stage 2 Settings */}
+      <div className="space-y-6 p-6 bg-purple-50 rounded-xl border border-purple-100">
+        <h3 className="text-lg font-semibold text-purple-900">Stage 2: Structure Latent Generation</h3>
+        
+        <div className="space-y-4">
+          <div>
+            <div className="flex justify-between items-center mb-3">
+              <Label className="text-sm font-medium text-purple-800">Guidance Strength</Label>
+              <span className="text-sm font-mono text-purple-600 bg-purple-100 px-2 py-1 rounded">
+                {guidanceStrength2[0]}
+              </span>
             </div>
-            <div className="text-xs text-gray-500">{guidanceStrength2[0]}</div>
+            <Slider
+              value={guidanceStrength2}
+              onValueChange={setGuidanceStrength2}
+              max={20}
+              min={0}
+              step={0.5}
+              className="w-full"
+            />
           </div>
 
-          <div className="space-y-2">
-            <Label className="text-sm text-gray-600">Sampling Steps</Label>
-            <div className="px-2">
-              <Slider
-                value={samplingSteps2}
-                onValueChange={setSamplingSteps2}
-                max={50}
-                min={1}
-                step={1}
-                className="w-full"
-              />
+          <div>
+            <div className="flex justify-between items-center mb-3">
+              <Label className="text-sm font-medium text-purple-800">Sampling Steps</Label>
+              <span className="text-sm font-mono text-purple-600 bg-purple-100 px-2 py-1 rounded">
+                {samplingSteps2[0]}
+              </span>
             </div>
-            <div className="text-xs text-gray-500">{samplingSteps2[0]}</div>
+            <Slider
+              value={samplingSteps2}
+              onValueChange={setSamplingSteps2}
+              max={50}
+              min={1}
+              step={1}
+              className="w-full"
+            />
           </div>
         </div>
+      </div>
 
-        {/* Symmetry */}
-        <div className="space-y-3 mb-6">
-          <Label className="text-sm font-medium text-gray-700">Symmetry</Label>
-          <div className="flex gap-2">
+      {/* Symmetry Settings */}
+      <div className="space-y-4 p-6 bg-green-50 rounded-xl border border-green-100">
+        <Label className="text-lg font-semibold text-green-900">Symmetry</Label>
+        <div className="grid grid-cols-3 gap-2">
+          {['off', 'auto', 'on'].map((option) => (
             <Button
-              variant={symmetry === 'off' ? 'default' : 'outline'}
+              key={option}
+              variant={symmetry === option ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setSymmetry('off')}
-              className={symmetry === 'off' ? 'bg-yellow-500 hover:bg-yellow-600 text-black' : ''}
+              onClick={() => setSymmetry(option)}
+              className={
+                symmetry === option 
+                  ? 'bg-green-600 hover:bg-green-700 text-white border-green-600' 
+                  : 'border-green-200 text-green-700 hover:bg-green-100'
+              }
             >
-              Off
+              {option.charAt(0).toUpperCase() + option.slice(1)}
             </Button>
-            <Button
-              variant={symmetry === 'auto' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSymmetry('auto')}
-              className={symmetry === 'auto' ? 'bg-yellow-500 hover:bg-yellow-600 text-black' : ''}
-            >
-              Auto
-            </Button>
-            <Button
-              variant={symmetry === 'on' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setSymmetry('on')}
-              className={symmetry === 'on' ? 'bg-yellow-500 hover:bg-yellow-600 text-black' : ''}
-            >
-              On
-            </Button>
-          </div>
-        </div>
-
-        {/* Upload Section */}
-        <div className="space-y-3">
-          <div
-            {...getRootProps()}
-            className={cn(
-              "border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors",
-              isDragActive 
-                ? "border-yellow-500 bg-yellow-50" 
-                : "border-gray-300 hover:border-gray-400",
-              uploadedImage && "border-green-500 bg-green-50"
-            )}
-          >
-            <input {...getInputProps()} />
-            {uploadedImage ? (
-              <div className="space-y-3">
-                <img
-                  src={URL.createObjectURL(uploadedImage)}
-                  alt="Uploaded"
-                  className="max-w-full max-h-32 mx-auto rounded-lg"
-                />
-                <p className="text-sm font-medium text-gray-900">{uploadedImage.name}</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <Upload className="w-8 h-8 mx-auto text-gray-400" />
-                <div>
-                  <p className="text-sm font-medium text-gray-900">
-                    {isDragActive ? "Drop image here" : "Drag & drop your image here"}
-                  </p>
-                  <p className="text-xs text-gray-500">Upload image</p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <Button
-            onClick={handleGenerate}
-            disabled={!uploadedImage || isGenerating}
-            className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-medium"
-            size="lg"
-          >
-            {isGenerating ? (
-              <>
-                <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin mr-2" />
-                Generating...
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-4 h-4 mr-2" />
-                Generate 3D Model
-              </>
-            )}
-          </Button>
+          ))}
         </div>
       </div>
     </div>

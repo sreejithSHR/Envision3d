@@ -4,7 +4,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Share, Download, ExternalLink } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { Share, Download, ExternalLink, FileText, Calendar, Clock } from 'lucide-react';
 import { Job } from '../types';
 
 interface ProjectDetailsProps {
@@ -36,63 +37,66 @@ const ProjectDetails: React.FC<ProjectDetailsProps> = ({
   const getStatusColor = (status: Job['status']) => {
     switch (status) {
       case 'completed':
-        return 'bg-green-100 text-green-800';
+        return 'bg-green-100 text-green-800 border-green-200';
       case 'processing':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'failed':
-        return 'bg-red-100 text-red-800';
+        return 'bg-red-100 text-red-800 border-red-200';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-8 space-y-8">
       <div>
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Project Details</h2>
+        <div className="flex items-center gap-3 mb-6">
+          <FileText className="w-5 h-5 text-gray-600" />
+          <h2 className="text-xl font-semibold text-gray-900">Project Details</h2>
+        </div>
         
-        <div className="space-y-4">
+        <div className="space-y-6">
           <div>
-            <Label htmlFor="project-name" className="text-sm font-medium text-gray-700">
-              Name
+            <Label htmlFor="project-name" className="text-sm font-semibold text-gray-700 mb-2 block">
+              Project Name
             </Label>
             <Input
               id="project-name"
               placeholder="Enter project name"
               value={projectName}
               onChange={(e) => onProjectNameChange(e.target.value)}
-              className="mt-1"
+              className="w-full"
             />
           </div>
 
           <div>
-            <Label htmlFor="project-description" className="text-sm font-medium text-gray-700">
+            <Label htmlFor="project-description" className="text-sm font-semibold text-gray-700 mb-2 block">
               Description
             </Label>
             <Textarea
               id="project-description"
-              placeholder="Write a short description..."
+              placeholder="Describe your 3D model project..."
               value={projectDescription}
               onChange={(e) => onProjectDescriptionChange(e.target.value)}
-              className="mt-1 min-h-[100px] resize-none"
+              className="min-h-[120px] resize-none"
             />
           </div>
         </div>
       </div>
 
       {selectedJob && (
-        <div className="space-y-4">
+        <div className="space-y-6 p-6 bg-gray-50 rounded-xl border border-gray-200">
           <div className="flex items-center justify-between">
-            <h3 className="font-medium text-gray-900">Current Model</h3>
-            <Badge className={getStatusColor(selectedJob.status)}>
-              {selectedJob.status}
+            <h3 className="text-lg font-semibold text-gray-900">Current Model</h3>
+            <Badge className={`${getStatusColor(selectedJob.status)} border font-medium`}>
+              {selectedJob.status.charAt(0).toUpperCase() + selectedJob.status.slice(1)}
             </Badge>
           </div>
 
           {selectedJob.image && (
-            <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden">
+            <div className="aspect-video bg-white rounded-lg overflow-hidden border border-gray-200 shadow-sm">
               <img
                 src={selectedJob.image}
                 alt={selectedJob.name}
@@ -101,68 +105,75 @@ const ProjectDetails: React.FC<ProjectDetailsProps> = ({
             </div>
           )}
 
-          <div className="space-y-2">
-            <p className="text-sm text-gray-600">
-              <span className="font-medium">Created:</span> {new Date(selectedJob.createdAt).toLocaleDateString()}
-            </p>
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="flex items-center gap-2 text-gray-600">
+              <Calendar className="w-4 h-4" />
+              <span>Created: {new Date(selectedJob.createdAt).toLocaleDateString()}</span>
+            </div>
             {selectedJob.completedAt && (
-              <p className="text-sm text-gray-600">
-                <span className="font-medium">Completed:</span> {new Date(selectedJob.completedAt).toLocaleDateString()}
-              </p>
+              <div className="flex items-center gap-2 text-gray-600">
+                <Clock className="w-4 h-4" />
+                <span>Completed: {new Date(selectedJob.completedAt).toLocaleDateString()}</span>
+              </div>
             )}
           </div>
 
           {selectedJob.status === 'processing' && (
-            <div className="space-y-2">
+            <div className="space-y-3">
               <div className="flex justify-between text-sm">
-                <span className="text-gray-600">Progress</span>
-                <span className="font-medium">{selectedJob.progress}%</span>
+                <span className="font-medium text-gray-700">Generation Progress</span>
+                <span className="font-semibold text-blue-600">{selectedJob.progress}%</span>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div 
-                  className="bg-yellow-500 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${selectedJob.progress}%` }}
-                />
-              </div>
+              <Progress value={selectedJob.progress} className="h-2" />
+              <p className="text-xs text-gray-500">
+                This may take a few minutes depending on image complexity
+              </p>
             </div>
           )}
 
           {selectedJob.status === 'completed' && selectedJob.downloads && (
-            <div className="space-y-3">
-              <div className="flex gap-2">
+            <div className="space-y-4">
+              <h4 className="font-semibold text-gray-900">Download Options</h4>
+              <div className="grid grid-cols-1 gap-2">
                 {selectedJob.downloads.glb && (
                   <Button
                     variant="outline"
-                    size="sm"
                     onClick={() => handleDownload('glb')}
-                    className="flex-1"
+                    className="justify-start h-auto p-3"
                   >
-                    <Download className="w-3 h-3 mr-1" />
-                    GLB
+                    <Download className="w-4 h-4 mr-3" />
+                    <div className="text-left">
+                      <div className="font-medium">GLB Format</div>
+                      <div className="text-xs text-gray-500">3D model for web and AR</div>
+                    </div>
                   </Button>
                 )}
                 
                 {selectedJob.downloads.ply && (
                   <Button
                     variant="outline"
-                    size="sm"
                     onClick={() => handleDownload('ply')}
-                    className="flex-1"
+                    className="justify-start h-auto p-3"
                   >
-                    <Download className="w-3 h-3 mr-1" />
-                    PLY
+                    <Download className="w-4 h-4 mr-3" />
+                    <div className="text-left">
+                      <div className="font-medium">PLY Format</div>
+                      <div className="text-xs text-gray-500">Point cloud data</div>
+                    </div>
                   </Button>
                 )}
                 
                 {selectedJob.downloads.mp4 && (
                   <Button
                     variant="outline"
-                    size="sm"
                     onClick={() => handleDownload('mp4')}
-                    className="flex-1"
+                    className="justify-start h-auto p-3"
                   >
-                    <Download className="w-3 h-3 mr-1" />
-                    MP4
+                    <Download className="w-4 h-4 mr-3" />
+                    <div className="text-left">
+                      <div className="font-medium">MP4 Video</div>
+                      <div className="text-xs text-gray-500">360° rotation preview</div>
+                    </div>
                   </Button>
                 )}
               </div>
@@ -171,21 +182,27 @@ const ProjectDetails: React.FC<ProjectDetailsProps> = ({
         </div>
       )}
 
-      <div className="pt-4 border-t border-gray-200">
+      <div className="pt-6 border-t border-gray-200">
         <Button
           onClick={onPublish}
           disabled={!selectedJob || selectedJob.status !== 'completed' || !selectedJob.downloads?.glb}
-          className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-medium"
+          className="w-full bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-black font-semibold py-3 rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
           size="lg"
         >
-          <Share className="w-4 h-4 mr-2" />
-          Publish
+          <Share className="w-5 h-5 mr-3" />
+          Publish & Share Model
         </Button>
         
         {selectedJob && selectedJob.status === 'completed' && (
-          <p className="text-xs text-gray-500 mt-2 text-center">
-            Generate a shareable link with Google Model Viewer
-          </p>
+          <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="flex items-start gap-2">
+              <ExternalLink className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+              <div className="text-xs text-blue-700">
+                <p className="font-medium">Share your 3D model</p>
+                <p>Creates a shareable link with Google Model Viewer for interactive viewing</p>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>
